@@ -38,7 +38,10 @@ class SVGAVideoEntity {
 
     internal var spriteList: List<SVGAVideoSpriteEntity> = emptyList()
     internal var audioList: List<SVGAAudioEntity> = emptyList()
+
     internal var soundPool: SoundPool? = null
+    private var soundCallback: SVGASoundManager.CompleteCallBack? = null
+
     internal var imageMap = HashMap<String, Bitmap>()
     private var mCacheDir: File
     private var mFrameHeight = 0
@@ -204,7 +207,15 @@ class SVGAVideoEntity {
             FileInputStream(file).use {
                 val length = it.available().toDouble()
                 val offset = ((startTime / totalTime) * length).toLong()
-                item.soundID = soundPool?.load(it.fd, offset, length.toLong(), 1)
+                if (SVGASoundManager.get().isInit()){
+                    item.soundID = SVGASoundManager.get().load(soundCallback,
+                            it.fd,
+                            offset,
+                            length.toLong(),
+                            1)
+                }else{
+                    item.soundID = soundPool?.load(it.fd, offset, length.toLong(), 1)
+                }
             }
         }
         return item
@@ -250,11 +261,23 @@ class SVGAVideoEntity {
 
     private fun setupSoundPool(entity: MovieEntity, completionBlock: () -> Unit) {
         var soundLoaded = 0
-        soundPool = generateSoundPool(entity)
-        soundPool?.setOnLoadCompleteListener { _, _, _ ->
-            soundLoaded++
-            if (soundLoaded >= entity.audios.count()) {
-                completionBlock()
+
+        if (SVGASoundManager.get().isInit()){
+            soundCallback = object : SVGASoundManager.CompleteCallBack {
+                override fun onComplete() {
+                    soundLoaded++
+                    if (soundLoaded >= entity.audios.count()) {
+                        completionBlock()
+                    }
+                }
+            }
+        }else{
+            soundPool = generateSoundPool(entity)
+            soundPool?.setOnLoadCompleteListener { _, _, _ ->
+                soundLoaded++
+                if (soundLoaded >= entity.audios.count()) {
+                    completionBlock()
+                }
             }
         }
     }
@@ -271,8 +294,15 @@ class SVGAVideoEntity {
     }
 
     fun clear() {
-        soundPool?.release()
-        soundPool = null
+        if (SVGASoundManager.get().isInit()){
+            this.audioList.forEach {
+                it.soundID?.let { id -> SVGASoundManager.get().unload(id) }
+            }
+            soundCallback = null
+        }else{
+            soundPool?.release()
+            soundPool = null
+        }
         audioList = emptyList()
         spriteList = emptyList()
         imageMap.clear()

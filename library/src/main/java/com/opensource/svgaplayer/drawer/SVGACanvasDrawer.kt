@@ -5,6 +5,7 @@ import android.os.Build
 import android.text.*
 import android.widget.ImageView
 import com.opensource.svgaplayer.SVGADynamicEntity
+import com.opensource.svgaplayer.SVGASoundManager
 import com.opensource.svgaplayer.SVGAVideoEntity
 import com.opensource.svgaplayer.entities.SVGAVideoShapeEntity
 import java.lang.Exception
@@ -156,15 +157,26 @@ internal class SVGACanvasDrawer(videoItem: SVGAVideoEntity, val dynamicItem: SVG
     private fun playAudio(frameIndex: Int) {
         this.videoItem.audioList.forEach { audio ->
             if (audio.startFrame == frameIndex) {
-                this.videoItem.soundPool?.let { soundPool ->
+                if (SVGASoundManager.get().isInit()){
                     audio.soundID?.let {soundID ->
-                        audio.playID = soundPool.play(soundID, 1.0f, 1.0f, 1, 0, 1.0f)
+                        audio.playID = SVGASoundManager.get().play(soundID, 1.0f, 1.0f, 1, 0, 1.0f)
+                    }
+                }else{
+                    this.videoItem.soundPool?.let { soundPool ->
+                        audio.soundID?.let {soundID ->
+                            audio.playID = soundPool.play(soundID, 1.0f, 1.0f, 1, 0, 1.0f)
+                        }
                     }
                 }
             }
+
             if (audio.endFrame <= frameIndex) {
                 audio.playID?.let {
-                    this.videoItem.soundPool?.stop(it)
+                    if (SVGASoundManager.get().isInit()){
+                        SVGASoundManager.get().stop(it)
+                    }else{
+                        this.videoItem.soundPool?.stop(it)
+                    }
                 }
                 audio.playID = null
             }
